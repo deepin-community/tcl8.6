@@ -47,6 +47,8 @@ libtcl8.6.so libtcl8.6 #MINVER#
  TclBN_mp_mul_d@Base 8.6.0
  TclBN_mp_neg@Base 8.6.0
  TclBN_mp_or@Base 8.6.0
+ TclBN_mp_pack@Base 8.6.14
+ TclBN_mp_pack_count@Base 8.6.14
  TclBN_mp_radix_size@Base 8.6.0
  TclBN_mp_read_radix@Base 8.6.0
  TclBN_mp_rshd@Base 8.6.0
@@ -67,6 +69,7 @@ libtcl8.6.so libtcl8.6 #MINVER#
  TclBN_mp_toom_mul@Base 8.6.0
  TclBN_mp_toom_sqr@Base 8.6.0
  TclBN_mp_toradix_n@Base 8.6.0
+ TclBN_mp_unpack@Base 8.6.14
  TclBN_mp_unsigned_bin_size@Base 8.6.0
  TclBN_mp_xor@Base 8.6.0
  TclBN_mp_zero@Base 8.6.0
@@ -104,6 +107,7 @@ libtcl8.6.so libtcl8.6 #MINVER#
  TclFreePackageInfo@Base 8.6.0
  TclGetAndDetachPids@Base 8.6.0
  TclGetAuxDataType@Base 8.6.0
+ TclGetCStackPtr@Base 8.6.14
  TclGetEnv@Base 8.6.0
  TclGetExtension@Base 8.6.0
  TclGetFrame@Base 8.6.0

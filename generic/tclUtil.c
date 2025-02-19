@@ -652,7 +652,7 @@ FindElement(
 			    "%s element in braces followed by \"%.*s\" "
 			    "instead of space", typeStr, (int) (p2-p), p));
 		    Tcl_SetErrorCode(interp, "TCL", "VALUE", typeCode, "JUNK",
-			    NULL);
+			    (char *)NULL);
 		}
 		return TCL_ERROR;
 	    }
@@ -704,7 +704,7 @@ FindElement(
 			    "%s element in quotes followed by \"%.*s\" "
 			    "instead of space", typeStr, (int) (p2-p), p));
 		    Tcl_SetErrorCode(interp, "TCL", "VALUE", typeCode, "JUNK",
-			    NULL);
+			    (char *)NULL);
 		}
 		return TCL_ERROR;
 	    }
@@ -737,7 +737,7 @@ FindElement(
 		Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 			"unmatched open brace in %s", typeStr));
 		Tcl_SetErrorCode(interp, "TCL", "VALUE", typeCode, "BRACE",
-			NULL);
+			(char *)NULL);
 	    }
 	    return TCL_ERROR;
 	} else if (inQuotes) {
@@ -745,7 +745,7 @@ FindElement(
 		Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 			"unmatched open quote in %s", typeStr));
 		Tcl_SetErrorCode(interp, "TCL", "VALUE", typeCode, "QUOTE",
-			NULL);
+			(char *)NULL);
 	    }
 	    return TCL_ERROR;
 	}
@@ -892,7 +892,7 @@ Tcl_SplitList(
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(
 			"internal error in Tcl_SplitList", -1));
 		Tcl_SetErrorCode(interp, "TCL", "INTERNAL", "Tcl_SplitList",
-			NULL);
+			(char *)NULL);
 	    }
 	    return TCL_ERROR;
 	}
@@ -1010,7 +1010,7 @@ Tcl_ScanCountedElement(
  *----------------------------------------------------------------------
  */
 
-int
+unsigned int
 TclScanElement(
     const char *src,		/* String to convert to Tcl list element. */
     int length,			/* Number of bytes in src, or -1. */
@@ -1026,7 +1026,7 @@ TclScanElement(
     int extra = 0;		/* Count of number of extra bytes needed for
 				 * formatted element, assuming we use escape
 				 * sequences in formatting. */
-    int bytesNeeded;		/* Buffer length computed to complete the
+    unsigned int bytesNeeded;		/* Buffer length computed to complete the
 				 * element formatting in the selected mode. */
 #if COMPAT
     int preferEscape = 0;	/* Use preferences to track whether to use */
@@ -1228,7 +1228,7 @@ TclScanElement(
 	     * If we are quoting solely due to ] or internal " characters use
 	     * the CONVERT_MASK mode where we escape all special characters
 	     * except for braces. "extra" counted space needed to escape
-	     * braces too, so substract "braceCount" to get our actual needs.
+	     * braces too, so subtract "braceCount" to get our actual needs.
 	     */
 
 	    bytesNeeded += (extra - braceCount);
@@ -1290,7 +1290,7 @@ TclScanElement(
     *flagPtr = CONVERT_NONE;
 
   overflowCheck:
-    if (bytesNeeded < 0) {
+    if (bytesNeeded > INT_MAX) {
 	Tcl_Panic("TclScanElement: string length overflow");
     }
     return bytesNeeded;
@@ -1568,7 +1568,8 @@ Tcl_Merge(
 {
 #define LOCAL_SIZE 64
     char localFlags[LOCAL_SIZE], *flagPtr = NULL;
-    int i, bytesNeeded = 0;
+    int i;
+    unsigned int bytesNeeded = 0;
     char *result, *dst;
 
     /*
@@ -1576,7 +1577,10 @@ Tcl_Merge(
      * simpler.
      */
 
-    if (argc == 0) {
+    if (argc <= 0) {
+	if (argc < 0) {
+	    Tcl_Panic("Tcl_Merge called with negative argc (%d)", argc);
+	}
 	result = (char *)ckalloc(1);
 	result[0] = '\0';
 	return result;
@@ -1594,11 +1598,11 @@ Tcl_Merge(
     for (i = 0; i < argc; i++) {
 	flagPtr[i] = ( i ? TCL_DONT_QUOTE_HASH : 0 );
 	bytesNeeded += TclScanElement(argv[i], -1, &flagPtr[i]);
-	if (bytesNeeded < 0) {
+	if (bytesNeeded > INT_MAX) {
 	    Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
 	}
     }
-    if (bytesNeeded > INT_MAX - argc + 1) {
+    if (bytesNeeded + argc > INT_MAX + 1U) {
 	Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
     }
     bytesNeeded += argc;
@@ -2014,7 +2018,7 @@ Tcl_ConcatObj(
 	if (TclListObjIsCanonical(objPtr)) {
 	    continue;
 	}
-	Tcl_GetStringFromObj(objPtr, &length);
+	TclGetStringFromObj(objPtr, &length);
 	if (length > 0) {
 	    break;
 	}
@@ -2033,7 +2037,7 @@ Tcl_ConcatObj(
 		if (elemPtr == NULL) {
 		    continue;
 		}
-		if (Tcl_GetString(elemPtr)[0] == '#' || TCL_OK
+		if (TclGetString(elemPtr)[0] == '#' || TCL_OK
 			!= Tcl_ListObjAppendList(NULL, resPtr, objPtr)) {
 		    /* Abandon ship! */
 		    Tcl_DecrRefCount(resPtr);
@@ -2054,7 +2058,7 @@ Tcl_ConcatObj(
      * Something cannot be determined to be safe, so build the concatenation
      * the slow way, using the string representations.
      *
-     * First try to pre-allocate the size required.
+     * First try to preallocate the size required.
      */
 
     for (i = 0;  i < objc;  i++) {
@@ -2645,7 +2649,7 @@ Tcl_DStringInit(
  * Side effects:
  *	Length bytes from "bytes" (or all of "bytes" if length is less than
  *	zero) are added to the current value of the string. Memory gets
- *	reallocated if needed to accomodate the string's new size.
+ *	reallocated if needed to accommodate the string's new size.
  *
  *----------------------------------------------------------------------
  */
@@ -2723,7 +2727,7 @@ TclDStringAppendObj(
     Tcl_Obj *objPtr)
 {
     int length;
-    char *bytes = Tcl_GetStringFromObj(objPtr, &length);
+    char *bytes = TclGetStringFromObj(objPtr, &length);
 
     return Tcl_DStringAppend(dsPtr, bytes, length);
 }
@@ -2749,7 +2753,7 @@ TclDStringAppendDString(
  *
  * Side effects:
  *	String is reformatted as a list element and added to the current value
- *	of the string. Memory gets reallocated if needed to accomodate the
+ *	of the string. Memory gets reallocated if needed to accommodate the
  *	string's new size.
  *
  *----------------------------------------------------------------------
@@ -3316,9 +3320,9 @@ Tcl_PrintDouble(
 	 */
 
 	if (*precisionPtr == 0) {
-	    sprintf(dst, "e%+d", exponent);
+	    snprintf(dst, TCL_DOUBLE_SPACE, "e%+d", exponent);
 	} else {
-	    sprintf(dst, "e%+03d", exponent);
+	    snprintf(dst, TCL_DOUBLE_SPACE, "e%+03d", exponent);
 	}
     } else {
 	/*
@@ -3694,7 +3698,7 @@ TclGetIntForIndex(
 	    bytes += 4;
 	}
 	TclCheckBadOctal(interp, bytes);
-	Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
+	Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", (char *)NULL);
     }
 
     return TCL_ERROR;
@@ -3730,7 +3734,8 @@ UpdateStringOfEndOffset(
     memcpy(buffer, "end", 4);
     if (objPtr->internalRep.longValue != 0) {
 	buffer[len++] = '-';
-	len += TclFormatInt(buffer+len, -(objPtr->internalRep.longValue));
+	len += TclFormatInt(buffer+len,
+		(long)(-(unsigned long)(objPtr->internalRep.longValue)));
     }
     objPtr->bytes = (char *)ckalloc(len+1);
     memcpy(objPtr->bytes, buffer, len+1);
@@ -3817,7 +3822,7 @@ SetEndOffsetFromAny(
 	if (interp != NULL) {
 	    Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 		    "bad index \"%s\": must be end?[+-]integer?", bytes));
-	    Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
+	    Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", (char *)NULL);
 	}
 	return TCL_ERROR;
     }
@@ -3842,8 +3847,7 @@ SetEndOffsetFromAny(
 	}
 	if (bytes[3] == '-') {
 
-	    /* TODO: Review overflow concerns here! */
-	    offset = -offset;
+	    offset = (int)(-(unsigned int)offset);
 	}
     } else {
 	/*
@@ -3854,7 +3858,7 @@ SetEndOffsetFromAny(
 	if (interp != NULL) {
 	    Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 		    "bad index \"%s\": must be end?[+-]integer?", bytes));
-	    Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", NULL);
+	    Tcl_SetErrorCode(interp, "TCL", "VALUE", "INDEX", (char *)NULL);
 	}
 	return TCL_ERROR;
     }
@@ -3954,12 +3958,12 @@ TclIndexEncode(
          */
         if (idx > 0) {
             /*
-             * All end+postive or end-negative expressions
+             * All end+positive or end-negative expressions
              * always indicate "after the end".
              */
             idx = after;
         } else if (idx < INT_MIN - TCL_INDEX_END) {
-            /* These indices always indicate "before the beginning */
+            /* These indices always indicate "before the beginning" */
             idx = before;
         } else {
             /* Encoded end-positive (or end+negative) are offset */
@@ -4208,6 +4212,7 @@ TclSetProcessGlobalValue(
     Tcl_HashTable *cacheMap;
     Tcl_HashEntry *hPtr;
     int dummy;
+    Tcl_DString ds;
 
     Tcl_MutexLock(&pgvPtr->mutex);
 
@@ -4221,9 +4226,12 @@ TclSetProcessGlobalValue(
     } else {
 	Tcl_CreateExitHandler(FreeProcessGlobalValue, pgvPtr);
     }
-    bytes = Tcl_GetStringFromObj(newValue, &pgvPtr->numBytes);
+    bytes = TclGetStringFromObj(newValue, &pgvPtr->numBytes);
+    Tcl_UtfToExternalDString(encoding, bytes, pgvPtr->numBytes, &ds);
+    pgvPtr->numBytes = Tcl_DStringLength(&ds);
     pgvPtr->value = (char *)ckalloc(pgvPtr->numBytes + 1);
-    memcpy(pgvPtr->value, bytes, pgvPtr->numBytes + 1);
+    memcpy(pgvPtr->value, Tcl_DStringValue(&ds), pgvPtr->numBytes + 1);
+    Tcl_DStringFree(&ds);
     if (pgvPtr->encoding) {
 	Tcl_FreeEncoding(pgvPtr->encoding);
     }
@@ -4265,6 +4273,7 @@ TclGetProcessGlobalValue(
     Tcl_HashTable *cacheMap;
     Tcl_HashEntry *hPtr;
     int epoch = pgvPtr->epoch;
+    Tcl_DString newValue;
 
     if (pgvPtr->encoding) {
 	Tcl_Encoding current = Tcl_GetEncoding(NULL, NULL);
@@ -4276,7 +4285,7 @@ TclGetProcessGlobalValue(
 	     * system encoding.
 	     */
 
-	    Tcl_DString native, newValue;
+	    Tcl_DString native;
 
 	    Tcl_MutexLock(&pgvPtr->mutex);
 	    epoch = ++pgvPtr->epoch;
@@ -4326,10 +4335,12 @@ TclGetProcessGlobalValue(
 	}
 
 	/*
-	 * Store a copy of the shared value in our epoch-indexed cache.
+	 * Store a copy of the shared value (but then in utf-8)
+	 * in our epoch-indexed cache.
 	 */
 
-	value = Tcl_NewStringObj(pgvPtr->value, pgvPtr->numBytes);
+	Tcl_ExternalToUtfDString(NULL, pgvPtr->value, pgvPtr->numBytes, &newValue);
+	value = TclDStringToObj(&newValue);
 	hPtr = Tcl_CreateHashEntry(cacheMap,
 		INT2PTR(pgvPtr->epoch), &dummy);
 	Tcl_MutexUnlock(&pgvPtr->mutex);
@@ -4690,7 +4701,7 @@ TclReToGlob(
   invalidGlob:
     if (interp != NULL) {
 	Tcl_SetObjResult(interp, Tcl_NewStringObj(msg, -1));
-	Tcl_SetErrorCode(interp, "TCL", "RE2GLOB", code, NULL);
+	Tcl_SetErrorCode(interp, "TCL", "RE2GLOB", code, (char *)NULL);
     }
     Tcl_DStringFree(dsPtr);
     return TCL_ERROR;

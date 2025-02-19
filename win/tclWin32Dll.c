@@ -90,7 +90,7 @@ BOOL APIENTRY
 DllEntryPoint(
     HINSTANCE hInst,		/* Library instance handle. */
     DWORD reason,		/* Reason this function is being called. */
-    LPVOID reserved)		/* Not used. */
+    LPVOID reserved)
 {
     return DllMain(hInst, reason, reserved);
 }
@@ -433,7 +433,7 @@ TclWinDriveLetterForVolMountPoint(
 	    if (!alreadyStored) {
 		dlPtr2 = (MountPointMap *)ckalloc(sizeof(MountPointMap));
 		dlPtr2->volumeName = (WCHAR *)TclNativeDupInternalRep(Target);
-		dlPtr2->driveLetter = (char) drive[0];
+		dlPtr2->driveLetter = (WCHAR) drive[0];
 		dlPtr2->nextPtr = driveLetterLookup;
 		driveLetterLookup = dlPtr2;
 	    }
@@ -459,7 +459,7 @@ TclWinDriveLetterForVolMountPoint(
 
     dlPtr2 = (MountPointMap *)ckalloc(sizeof(MountPointMap));
     dlPtr2->volumeName = (WCHAR *)TclNativeDupInternalRep((void *)mountPoint);
-    dlPtr2->driveLetter = -1;
+    dlPtr2->driveLetter = (WCHAR)-1;
     dlPtr2->nextPtr = driveLetterLookup;
     driveLetterLookup = dlPtr2;
     Tcl_MutexUnlock(&mountPointMap);
@@ -600,7 +600,7 @@ Tcl_WinTCharToUtf(
 	return NULL;
     }
     if (len < 0) {
-	len = wcslen((WCHAR *)string);
+	len = (int)wcslen((WCHAR *)string);
     } else {
 	len /= 2;
     }
@@ -661,12 +661,12 @@ TclWinCPUID(
 {
     int status = TCL_ERROR;
 
-#if defined(HAVE_INTRIN_H) && defined(_WIN64)
+#if defined(HAVE_INTRIN_H) && defined(_WIN64) && defined(HAVE_CPUID)
 
-    __cpuid((int *)regsPtr, index);
+    __cpuid((int *)regsPtr, (int)index);
     status = TCL_OK;
 
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && defined(HAVE_CPUID)
 #   if defined(_WIN64)
     /*
      * Execute the CPUID instruction with the given index, and store results
@@ -782,7 +782,7 @@ TclWinCPUID(
     status = registration.status;
 
 #   endif /* !_WIN64 */
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) && defined(HAVE_CPUID)
 #   if defined(_WIN64)
 
     __cpuid(regsPtr, index);
@@ -837,6 +837,8 @@ TclWinCPUID(
 
 #   endif
 #else
+    (void)index;
+    (void)regsPtr;
     /*
      * Don't know how to do assembly code for this compiler and/or
      * architecture.

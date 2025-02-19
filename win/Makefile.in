@@ -26,6 +26,9 @@ datarootdir		= @datarootdir@
 runstatedir		= @runstatedir@
 mandir			= @mandir@
 
+# Configure arguments
+PKG_CFG_ARGS		= @PKG_CFG_ARGS@
+
 # The following definition can be set to non-null for special systems like AFS
 # with replication. It allows the pathnames used for installation to be
 # different than those used for actually reference files at run-time.
@@ -82,10 +85,10 @@ CFLAGS_OPTIMIZE	= @CFLAGS_OPTIMIZE@
 
 # To change the compiler switches, for example to change from optimization to
 # debugging symbols, change the following line:
-#CFLAGS = 		$(CFLAGS_DEBUG)
-#CFLAGS = 		$(CFLAGS_OPTIMIZE)
-#CFLAGS = 		$(CFLAGS_DEBUG) $(CFLAGS_OPTIMIZE)
-CFLAGS = 		@CFLAGS@ @CFLAGS_DEFAULT@ -D_ATL_XP_TARGETING=1 -D__USE_MINGW_ANSI_STDIO=0 -DMP_FIXED_CUTOFFS -DMP_NO_STDINT
+#CFLAGS =		$(CFLAGS_DEBUG)
+#CFLAGS =		$(CFLAGS_OPTIMIZE)
+#CFLAGS =		$(CFLAGS_DEBUG) $(CFLAGS_OPTIMIZE)
+CFLAGS =		@CFLAGS@ @CFLAGS_DEFAULT@ -D_ATL_XP_TARGETING=1 -D__USE_MINGW_ANSI_STDIO=0 -DMP_FIXED_CUTOFFS -DMP_NO_STDINT
 
 # To compile without backward compatibility and deprecated code uncomment the
 # following
@@ -102,11 +105,11 @@ SRC_DIR			= @srcdir@
 ROOT_DIR		= @srcdir@/..
 TOP_DIR			= $(shell cd @srcdir@/..; pwd -W 2>/dev/null || pwd -P)
 GENERIC_DIR		= $(TOP_DIR)/generic
-TOMMATH_DIR		= $(TOP_DIR)/libtommath
 WIN_DIR			= $(TOP_DIR)/win
 COMPAT_DIR		= $(TOP_DIR)/compat
 PKGS_DIR		= $(TOP_DIR)/pkgs
 ZLIB_DIR		= $(COMPAT_DIR)/zlib
+TOMMATH_DIR		= $(TOP_DIR)/libtommath
 
 # Converts a POSIX path to a Windows native path.
 CYGPATH			= @CYGPATH@
@@ -117,7 +120,6 @@ includedir_native = $(shell $(CYGPATH) '$(includedir)')
 mandir_native = $(shell $(CYGPATH) '$(mandir)')
 TCL_LIBRARY_NATIVE	= $(shell $(CYGPATH) '$(TCL_LIBRARY)')
 GENERIC_DIR_NATIVE	= $(shell $(CYGPATH) '$(GENERIC_DIR)')
-TOMMATH_DIR_NATIVE	= $(shell $(CYGPATH) '$(TOMMATH_DIR)')
 WIN_DIR_NATIVE		= $(shell $(CYGPATH) '$(WIN_DIR)')
 ROOT_DIR_NATIVE		= $(shell $(CYGPATH) '$(ROOT_DIR)')
 SCRIPT_INSTALL_DIR_NATIVE	= $(shell $(CYGPATH) '$(SCRIPT_INSTALL_DIR)')
@@ -125,10 +127,7 @@ INCLUDE_INSTALL_DIR_NATIVE	= $(shell $(CYGPATH) '$(INCLUDE_INSTALL_DIR)')
 MAN_INSTALL_DIR_NATIVE	= $(shell $(CYGPATH) '$(MAN_INSTALL_DIR)')
 ROOT_DIR_WIN_NATIVE	= $(shell cd '$(ROOT_DIR)' ; pwd -W 2>/dev/null || pwd -P)
 ZLIB_DIR_NATIVE		= $(shell $(CYGPATH) '$(ZLIB_DIR)')
-#GENERIC_DIR_NATIVE	= $(GENERIC_DIR)
-#TOMMATH_DIR_NATIVE	= $(TOMMATH_DIR)
-#WIN_DIR_NATIVE		= $(WIN_DIR)
-#ROOT_DIR_NATIVE		= $(ROOT_DIR)
+TOMMATH_DIR_NATIVE	= $(shell $(CYGPATH) '$(TOMMATH_DIR)')
 
 # Fully qualify library path so that `make test`
 # does not depend on the current directory.
@@ -155,16 +154,18 @@ REG_LIB_FILE		= @LIBPREFIX@tclreg$(REGVER)${DLLSUFFIX}${LIBSUFFIX}
 TEST_DLL_FILE		= tcltest$(VER)${DLLSUFFIX}
 TEST_EXE_FILE		= tcltest${EXESUFFIX}
 TEST_LIB_FILE		= @LIBPREFIX@tcltest$(VER)${DLLSUFFIX}${LIBSUFFIX}
-TEST_LOAD_PRMS		= package ifneeded dde 1.4.4 [list load [file normalize ${DDE_DLL_FILE}] Dde];\
-			  package ifneeded registry 1.3.5 [list load [file normalize ${REG_DLL_FILE}] Registry]
-TEST_LOAD_FACILITIES	= package ifneeded Tcltest ${VERSION}@TCL_PATCH_LEVEL@ [list load [file normalize ${TEST_DLL_FILE}]];\
+TEST_LOAD_PRMS		= lappend ::auto_path {$(ROOT_DIR_WIN_NATIVE)/tests};\
+			  package ifneeded dde 1.4.4 [list load ${DDE_DLL_FILE} Dde];\
+			  package ifneeded registry 1.3.5 [list load ${REG_DLL_FILE} Registry]
+TEST_LOAD_FACILITIES	= package ifneeded Tcltest ${VERSION}@TCL_PATCH_LEVEL@ [list load ${TEST_DLL_FILE}];\
 			  $(TEST_LOAD_PRMS)
 ZLIB_DLL_FILE		= zlib1.dll
 
-SHARED_LIBRARIES 	= $(TCL_DLL_FILE) @ZLIB_DLL_FILE@
+SHARED_LIBRARIES	= $(TCL_DLL_FILE) @ZLIB_DLL_FILE@
 STATIC_LIBRARIES	= $(TCL_LIB_FILE)
 
 TCLSH			= tclsh$(VER)${EXESUFFIX}
+WINE			= @WINE@
 CAT32			= cat32$(EXEEXT)
 MAN2TCL			= man2tcl$(EXEEXT)
 
@@ -208,19 +209,20 @@ MKDIR		= mkdir -p
 SHELL		= @SHELL@
 RM		= rm -f
 COPY		= cp
+GDB		= gdb
 
-CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} \
--I"${ZLIB_DIR_NATIVE}" -I"${GENERIC_DIR_NATIVE}" -DTCL_TOMMATH \
--DMP_PREC=4 -I"${TOMMATH_DIR_NATIVE}" -I"${WIN_DIR_NATIVE}" \
+CC_SWITCHES = -I"${GENERIC_DIR_NATIVE}" -I"${TOMMATH_DIR_NATIVE}" \
+-I"${ZLIB_DIR_NATIVE}" -I"${WIN_DIR_NATIVE}" \
+${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} -DMP_PREC=4 \
 ${AC_FLAGS} ${COMPILE_DEBUG_FLAGS} ${NO_DEPRECATED_FLAGS}
 
 CC_OBJNAME = @CC_OBJNAME@
 CC_EXENAME = @CC_EXENAME@
 
-STUB_CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} \
--I"${GENERIC_DIR_NATIVE}" -DTCL_TOMMATH -DMP_PREC=4 -I"${TOMMATH_DIR_NATIVE}" \
--I"${WIN_DIR_NATIVE}" ${AC_FLAGS} \
-${COMPILE_DEBUG_FLAGS}
+STUB_CC_SWITCHES = -I"${GENERIC_DIR_NATIVE}" -I"${TOMMATH_DIR_NATIVE}" \
+-I"${ZLIB_DIR_NATIVE}" -I"${WIN_DIR_NATIVE}" \
+${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} -DMP_PREC=4 \
+${AC_FLAGS} ${COMPILE_DEBUG_FLAGS}
 
 TCLTEST_OBJS = \
 	tclTest.$(OBJEXT) \
@@ -334,9 +336,9 @@ TOMMATH_OBJS = \
 	bn_mp_div_d.${OBJEXT} \
 	bn_mp_div_2.${OBJEXT} \
 	bn_mp_div_2d.${OBJEXT} \
-	bn_mp_div_3.${OBJEXT} \
+	bn_s_mp_div_3.${OBJEXT} \
 	bn_mp_exch.${OBJEXT} \
-	bn_mp_expt_u32.${OBJEXT} \
+	bn_mp_expt_n.${OBJEXT} \
 	bn_mp_grow.${OBJEXT} \
 	bn_mp_init.${OBJEXT} \
 	bn_mp_init_copy.${OBJEXT} \
@@ -352,6 +354,8 @@ TOMMATH_OBJS = \
 	bn_mp_mul_d.${OBJEXT} \
 	bn_mp_neg.${OBJEXT} \
 	bn_mp_or.${OBJEXT} \
+	bn_mp_pack.${OBJEXT} \
+	bn_mp_pack_count.${OBJEXT} \
 	bn_mp_radix_size.${OBJEXT} \
 	bn_mp_radix_smap.${OBJEXT} \
 	bn_mp_read_radix.${OBJEXT} \
@@ -366,6 +370,7 @@ TOMMATH_OBJS = \
 	bn_mp_to_ubin.${OBJEXT} \
 	bn_mp_to_radix.${OBJEXT} \
 	bn_mp_ubin_size.${OBJEXT} \
+	bn_mp_unpack.${OBJEXT} \
 	bn_mp_xor.${OBJEXT} \
 	bn_mp_zero.${OBJEXT} \
 	bn_s_mp_add.${OBJEXT} \
@@ -487,16 +492,21 @@ ${TCL_STUB_LIB_FILE}: ${STUB_OBJS}
 	@MAKE_STUB_LIB@ ${STUB_OBJS}
 	@POST_MAKE_LIB@
 
-${TCL_DLL_FILE}: ${TCL_OBJS} tcl.$(RES)
+${TCL_DLL_FILE}: ${TCL_LIB_FILE} ${TCL_OBJS} tcl.$(RES)
 	@$(RM) ${TCL_DLL_FILE} $(TCL_LIB_FILE)
 	@MAKE_DLL@ ${TCL_OBJS} tcl.$(RES) $(SHLIB_LD_LIBS)
 	$(COPY) tclsh.exe.manifest ${TCL_DLL_FILE}.manifest
 	@VC_MANIFEST_EMBED_DLL@
 
+ifeq (,$(findstring --disable-shared,$(PKG_CFG_ARGS)))
+${TCL_LIB_FILE}:
+	@$(RM) ${TCL_DLL_FILE} $(TCL_LIB_FILE)
+else
 ${TCL_LIB_FILE}: ${TCL_OBJS} ${DDE_OBJS} ${REG_OBJS}
 	@$(RM) ${TCL_LIB_FILE}
 	@MAKE_LIB@ ${TCL_OBJS} ${DDE_OBJS} ${REG_OBJS}
 	@POST_MAKE_LIB@
+endif
 
 ${DDE_DLL_FILE}: ${TCL_STUB_LIB_FILE} ${DDE_OBJS}
 	@MAKE_DLL@ ${DDE_OBJS} $(TCL_STUB_LIB_FILE) $(SHLIB_LD_LIBS)
@@ -511,18 +521,22 @@ ${TEST_DLL_FILE}: ${TCL_STUB_LIB_FILE} ${TCLTEST_OBJS}
 	@MAKE_DLL@ ${TCLTEST_OBJS} $(TCL_STUB_LIB_FILE) $(SHLIB_LD_LIBS)
 	$(COPY) tclsh.exe.manifest ${TEST_DLL_FILE}.manifest
 
-${TEST_EXE_FILE}: ${TCL_STUB_LIB_FILE} ${TCLTEST_OBJS} tclTestMain.${OBJEXT}
+${TEST_EXE_FILE}: @LIBRARIES@ ${TCL_STUB_LIB_FILE} ${TCLTEST_OBJS} tclTestMain.${OBJEXT}
 	@$(RM) ${TEST_EXE_FILE}
 	$(CC) $(CFLAGS) $(TCLTEST_OBJS) tclTestMain.$(OBJEXT) $(TCL_LIB_FILE) $(TCL_STUB_LIB_FILE) $(LIBS) \
-        tclsh.$(RES) $(CC_EXENAME) $(LDFLAGS_CONSOLE)
+		tclsh.$(RES) $(CC_EXENAME) $(LDFLAGS_CONSOLE)
 	$(COPY) tclsh.exe.manifest ${TEST_EXE_FILE}.manifest
 
-# use pre-built zlib1.dll
+# use prebuilt zlib1.dll
 ${ZLIB_DLL_FILE}: ${TCL_STUB_LIB_FILE}
-	@if test "@ZLIB_LIBS@set" != "${ZLIB_DIR_NATIVE}/win32/zdll.libset" ; then \
-		$(COPY) $(ZLIB_DIR)/win64/${ZLIB_DLL_FILE} ${ZLIB_DLL_FILE}; \
-	else \
+	@if test "@ZLIB_LIBS@set" = "${ZLIB_DIR_NATIVE}/win64-arm/zdll.libset" ; then \
+		$(COPY) $(ZLIB_DIR)/win64-arm/${ZLIB_DLL_FILE} ${ZLIB_DLL_FILE}; \
+	elif test "@ZLIB_LIBS@set" = "${ZLIB_DIR_NATIVE}/win64-arm/libz.dll.aset" ; then \
+		$(COPY) $(ZLIB_DIR)/win64-arm/${ZLIB_DLL_FILE} ${ZLIB_DLL_FILE}; \
+	elif test "@ZLIB_LIBS@set" = "${ZLIB_DIR_NATIVE}/win32/zdll.libset" ; then \
 		$(COPY) $(ZLIB_DIR)/win32/${ZLIB_DLL_FILE} ${ZLIB_DLL_FILE}; \
+	else \
+		$(COPY) $(ZLIB_DIR)/win64/${ZLIB_DLL_FILE} ${ZLIB_DLL_FILE}; \
 	fi;
 
 # Add the object extension to the implicit rules. By default .obj is not
@@ -578,6 +592,20 @@ tclPkgConfig.${OBJEXT}: tclPkgConfig.c
 		-DCFG_RUNTIME_DOCDIR="\"$(mandir_native)\"" \
 		-DBUILD_tcl \
 		@DEPARG@ $(CC_OBJNAME)
+
+tclEvent.${OBJEXT}: tclEvent.c tclUuid.h
+
+$(TOP_DIR)/manifest.uuid:
+	printf "git-" >$(TOP_DIR)/manifest.uuid
+	(cd $(TOP_DIR); git rev-parse HEAD >>$(TOP_DIR)/manifest.uuid || \
+	    (printf "svn-r" >$(TOP_DIR)/manifest.uuid ; \
+	    svn info --show-item last-changed-revision >>$(TOP_DIR)/manifest.uuid) || \
+	    printf "unknown" >$(TOP_DIR)/manifest.uuid)
+
+tclUuid.h:	$(TOP_DIR)/manifest.uuid
+	echo "#define TCL_VERSION_UUID \\" >$@
+	cat $(TOP_DIR)/manifest.uuid >>$@
+	echo "" >>$@
 
 # The following objects are part of the stub library and should not be built
 # as DLL objects but none of the symbols should be exported
@@ -719,8 +747,8 @@ install-libraries: libraries install-tzdata install-msgs
 	    do \
 	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/http1.0"; \
 	    done;
-	@echo "Installing package http 2.9.5 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/http/http.tcl "$(MODULE_INSTALL_DIR)/8.6/http-2.9.5.tm";
+	@echo "Installing package http 2.9.8 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/http/http.tcl "$(MODULE_INSTALL_DIR)/8.6/http-2.9.8.tm";
 	@echo "Installing library opt0.4 directory";
 	@for j in $(ROOT_DIR)/library/opt/*.tcl; \
 	    do \
@@ -728,10 +756,10 @@ install-libraries: libraries install-tzdata install-msgs
 	    done;
 	@echo "Installing package msgcat 1.6.1 as a Tcl Module";
 	@$(COPY) $(ROOT_DIR)/library/msgcat/msgcat.tcl "$(MODULE_INSTALL_DIR)/8.5/msgcat-1.6.1.tm";
-	@echo "Installing package tcltest 2.5.3 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/tcltest/tcltest.tcl "$(MODULE_INSTALL_DIR)/8.5/tcltest-2.5.3.tm";
-	@echo "Installing package platform 1.0.18 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/platform/platform.tcl "$(MODULE_INSTALL_DIR)/8.4/platform-1.0.18.tm";
+	@echo "Installing package tcltest 2.5.9 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/tcltest/tcltest.tcl "$(MODULE_INSTALL_DIR)/8.5/tcltest-2.5.9.tm";
+	@echo "Installing package platform 1.0.19 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/platform/platform.tcl "$(MODULE_INSTALL_DIR)/8.4/platform-1.0.19.tm";
 	@echo "Installing package platform::shell 1.1.4 as a Tcl Module";
 	@$(COPY) $(ROOT_DIR)/library/platform/shell.tcl "$(MODULE_INSTALL_DIR)/8.4/platform/shell-1.1.4.tm";
 	@echo "Installing encodings";
@@ -795,7 +823,16 @@ shell: binaries
 # This target can be used to run tclsh inside either gdb or insight
 gdb: binaries
 	@echo "set env TCL_LIBRARY=$(LIBRARY_DIR)" > gdb.run
-	gdb ./$(TCLSH) --command=gdb.run
+	$(GDB) ./$(TCLSH) --command=gdb.run
+	rm gdb.run
+
+shquotequote = $(subst ',\",$(subst ",\",$(1)))
+gdb-test: tcltest
+	@printf '%s ' 'set env TCL_LIBRARY=$(LIBRARY_DIR)' > gdb.run
+	@printf '\n' >>gdb.run
+	@printf '%s ' set args $(ROOT_DIR_NATIVE)/tests/all.tcl \
+		$(call shquotequote,$(TESTFLAGS)) -singleproc 1 >> gdb.run
+	$(GDB) ${TEST_EXE_FILE} --command=gdb.run
 	rm gdb.run
 
 depend:
@@ -814,13 +851,12 @@ clean: cleanhelp clean-packages
 
 distclean: distclean-packages clean
 	$(RM) Makefile config.status config.cache config.log tclConfig.sh \
-		tcl.hpj config.status.lineno tclsh.exe.manifest
+		tcl.hpj config.status.lineno tclsh.exe.manifest tclUuid.h
 
 #
 # Bundled package targets
 #
 
-PKG_CFG_ARGS		= @PKG_CFG_ARGS@
 PKG_DIR			= ./pkgs
 
 packages:
@@ -831,9 +867,9 @@ packages:
 	      pkg=`basename $$i`; \
 	      mkdir -p $(PKG_DIR)/$$pkg; \
 	      if [ ! -f $(PKG_DIR)/$$pkg/Makefile ]; then \
-	        ( cd $(PKG_DIR)/$$pkg; \
-	          echo "Configuring package '$$i' wd = `$(CYGPATH) $$(pwd -P)`"; \
-	          $$i/configure --with-tcl=$$builddir --with-tclinclude=$(GENERIC_DIR_NATIVE) $(PKG_CFG_ARGS) --enable-shared --enable-threads; ) \
+		( cd $(PKG_DIR)/$$pkg; \
+		  echo "Configuring package '$$i' wd = `$(CYGPATH) $$(pwd -P)`"; \
+		  $$i/configure --with-tcl=$$builddir --with-tclinclude=$(GENERIC_DIR_NATIVE) $(PKG_CFG_ARGS) --enable-shared --enable-threads; ) \
 	      fi ; \
 	      echo "Building package '$$pkg'"; \
 	      ( cd $(PKG_DIR)/$$pkg; $(MAKE); ) \
@@ -848,8 +884,8 @@ install-packages: packages
 	  if [ -d $$i ]; then \
 	    pkg=`basename $$i`; \
 	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
-	        echo "Installing package '$$pkg'"; \
-	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) install "DESTDIR=$(INSTALL_ROOT)"; ) \
+		echo "Installing package '$$pkg'"; \
+		( cd $(PKG_DIR)/$$pkg; $(MAKE) install "DESTDIR=$(INSTALL_ROOT)"; ) \
 	    fi; \
 	  fi; \
 	done; \
@@ -861,8 +897,8 @@ test-packages: tcltest packages
 	  if [ -d $$i ]; then \
 	    pkg=`basename $$i`; \
 	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
-	        echo "Testing package '$$pkg'"; \
-	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) "LD_LIBRARY_PATH=$$builddir:${LD_LIBRARY_PATH}" "TCL_LIBRARY=${TCL_BUILDTIME_LIBRARY}" "TCLLIBPATH=$$builddir/pkgs" test "TCLSH_PROG=$$builddir/${TCLSH}"; ) \
+		echo "Testing package '$$pkg'"; \
+		( cd $(PKG_DIR)/$$pkg; $(MAKE) "LD_LIBRARY_PATH=$$builddir:${LD_LIBRARY_PATH}" "TCL_LIBRARY=${TCL_BUILDTIME_LIBRARY}" "TCLLIBPATH=$$builddir/pkgs" test "TCLSH_PROG=$$builddir/${TCLSH}"; ) \
 	    fi; \
 	  fi; \
 	done; \
@@ -874,7 +910,7 @@ clean-packages:
 	  if [ -d $$i ]; then \
 	    pkg=`basename $$i`; \
 	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
-	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) clean; ) \
+		( cd $(PKG_DIR)/$$pkg; $(MAKE) clean; ) \
 	    fi; \
 	  fi; \
 	done; \
@@ -886,7 +922,7 @@ distclean-packages:
 	  if [ -d $$i ]; then \
 	    pkg=`basename $$i`; \
 	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
-	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) distclean; ) \
+		( cd $(PKG_DIR)/$$pkg; $(MAKE) distclean; ) \
 	    fi; \
 	    cd $$builddir; \
 	    rm -rf $(PKG_DIR)/$$pkg; \
@@ -905,12 +941,12 @@ $(GENERIC_DIR)/tclStubInit.c: $(GENERIC_DIR)/tcl.decls \
 	@echo "This warning can be safely ignored, do not report as a bug!"
 
 genstubs:
-	$(TCL_EXE) "$(ROOT_DIR_NATIVE)/tools/genStubs.tcl" \
+	$(TCL_EXE) -encoding utf-8 "$(ROOT_DIR_NATIVE)/tools/genStubs.tcl" \
 	    "$(GENERIC_DIR_NATIVE)" \
 	    "$(GENERIC_DIR_NATIVE)/tcl.decls" \
 	    "$(GENERIC_DIR_NATIVE)/tclInt.decls" \
 	    "$(GENERIC_DIR_NATIVE)/tclTomMath.decls"
-	$(TCL_EXE) "$(ROOT_DIR_NATIVE)/tools/genStubs.tcl" \
+	$(TCL_EXE) -encoding utf-8 "$(ROOT_DIR_NATIVE)/tools/genStubs.tcl" \
 	    "$(GENERIC_DIR_NATIVE)" \
 	    "$(GENERIC_DIR_NATIVE)/tclOO.decls"
 

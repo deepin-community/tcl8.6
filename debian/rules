@@ -37,9 +37,7 @@ override_dh_auto_configure:
 	# So so ugly but it works...
 	touch generic/tclStubInit.c
 	TCL_LIBRARY="/usr/share/tcltk/tcl$(v)" \
-	TCL_PACKAGE_PATH="/usr/local/lib/tcltk /usr/local/share/tcltk \
-			  /usr/lib/tcltk/$(DEB_HOST_MULTIARCH) /usr/lib/tcltk /usr/share/tcltk \
-			  /usr/lib/tcltk/tcl$(v) /usr/lib" \
+	TCL_PACKAGE_PATH="/usr/local/lib/tcltk:/usr/local/share/tcltk:/usr/lib/tcltk/$(DEB_HOST_MULTIARCH):/usr/lib/tcltk:/usr/share/tcltk:/usr/lib/tcltk/tcl$(v):/usr/lib" \
 	CC="$(CC)" \
 	CFLAGS="$(CFLAGS)" \
 	CPPFLAGS="$(CPPFLAGS)" \
@@ -132,11 +130,11 @@ get-orig-source:
 	TMPDIR=`mktemp -d /tmp/tcl$(v).XXXXXX` && \
 	cd $$TMPDIR && \
 	wget -O - \
-	    http://prdownloads.sourceforge.net/tcl/tcl-core$(v).12-src.tar.gz | tar -zx && \
+	    http://prdownloads.sourceforge.net/tcl/tcl-core$(v).16-src.tar.gz | tar -zx && \
 	for f in `find . -name *.chm` ; do \
 	    echo "REMOVING NON-FREE FILE $$f" ; rm -f $$f ; \
 	done && \
-	tar -zcf $$CURDIR/tcl$(v)_$(v).12+dfsg.orig.tar.gz tcl$(v).12 && \
+	tar -zcf $$CURDIR/tcl$(v)_$(v).16+dfsg.orig.tar.gz tcl$(v).16 && \
 	rm -rf $$TMPDIR
 
 .PHONY: override_dh_auto_clean override_dh_auto_configure override_dh_auto_install \
