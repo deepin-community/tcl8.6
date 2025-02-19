@@ -257,7 +257,7 @@ proc genStubs::rewriteFile {file text} {
 	return
     }
     set in [open ${file} r]
-    fconfigure $in -eofchar "\032 {}" -encoding utf-8
+    fconfigure $in -eofchar "\x1A {}" -encoding utf-8
     set out [open ${file}.new w]
     fconfigure $out -translation lf -encoding utf-8
 
@@ -822,9 +822,9 @@ proc genStubs::forAllStubs {name slotProc onAll textVar
 			# TkIntStubs entry 113 for aqua is in fact at position
 			# 114 in the table, entry 114 at position 116 etc).
 			eval {append temp} $skipString
-			set temp "[string range $temp 0 end-1] /*\
+			set temp "# if TCL_MAJOR_VERSION < 9\n[string range $temp 0 end-1] /*\
 				Dummy entry for stubs table backwards\
-				compatibility */\n"
+				compatibility */\n# endif /* TCL_MAJOR_VERSION < 9 */\n"
 		    }
 		    if {$slot($plat)} {
 			append temp [$slotProc $name $stubs($name,$plat,$i) $i]

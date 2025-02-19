@@ -29,7 +29,7 @@
  */
 
 #define POSIX_EPOCH_AS_FILETIME	\
-	((Tcl_WideInt) 116444736 * (Tcl_WideInt) 1000000000)
+	((Tcl_WideInt)116444736 * (Tcl_WideInt)1000000000)
 
 /*
  * Declarations for 'link' related information. This information should come
@@ -177,7 +177,6 @@ static int		WinLink(const WCHAR *LinkSource,
 			    const WCHAR *LinkTarget, int linkAction);
 static int		WinSymLinkDirectory(const WCHAR *LinkDirectory,
 			    const WCHAR *LinkTarget);
-MODULE_SCOPE TCL_NORETURN void	tclWinDebugPanic(const char *format, ...);
 
 /*
  *--------------------------------------------------------------------
@@ -812,7 +811,7 @@ NativeWriteReparse(
  *----------------------------------------------------------------------
  */
 
-TCL_NORETURN void
+MODULE_SCOPE TCL_NORETURN void
 tclWinDebugPanic(
     const char *format, ...)
 {
@@ -946,7 +945,7 @@ TclpMatchInDirectory(
 	    WIN32_FILE_ATTRIBUTE_DATA data;
 	    const char *str = Tcl_GetStringFromObj(norm,&len);
 
-	    native = Tcl_FSGetNativePath(pathPtr);
+	    native = (WCHAR *)Tcl_FSGetNativePath(pathPtr);
 
 	    if (GetFileAttributesExW(native,
 		    GetFileExInfoStandard, &data) != TRUE) {
@@ -987,7 +986,7 @@ TclpMatchInDirectory(
 	 * Verify that the specified path exists and is actually a directory.
 	 */
 
-	native = Tcl_FSGetNativePath(pathPtr);
+	native = (const WCHAR *)Tcl_FSGetNativePath(pathPtr);
 	if (native == NULL) {
 	    return TCL_OK;
 	}
@@ -1458,21 +1457,41 @@ TclpGetUserHome(
     if (domain == NULL) {
 	const char *ptr;
 
-	/*
-	 * No domain. Firstly check it's the current user
-	 */
-
+        /*
+         * Treat the current user as a special case because the general case
+         * below does not properly retrieve the path. The NetUserGetInfo
+         * call returns an empty path and the code defaults to the user's
+         * name in the profiles directory. On modern Windows systems, this
+         * is generally wrong as when the account is a Microsoft account,
+         * for example abcdefghi@outlook.com, the directory name is
+         * abcde and not abcdefghi.
+         *
+         * Note we could have just used env(USERPROFILE) here but
+         * the intent is to retrieve (as on Unix) the system's view
+         * of the home irrespective of environment settings of HOME
+         * and USERPROFILE.
+         *
+         * Fixing this for the general user needs more investigating but
+         * at least for the current user we can use a direct call.
+         */
 	ptr = TclpGetUserName(&ds);
 	if (ptr != NULL && strcasecmp(name, ptr) == 0) {
-	    /*
-	     * Try safest and fastest way to get current user home
-	     */
-
-	    ptr = TclGetEnv("HOME", &ds);
-	    if (ptr != NULL) {
-		Tcl_JoinPath(1, &ptr, bufferPtr);
-		rc = 1;
-		result = Tcl_DStringValue(bufferPtr);
+	    HANDLE hProcess;
+	    WCHAR buf[MAX_PATH];
+	    DWORD nChars = sizeof(buf) / sizeof(buf[0]);
+	    /* Sadly GetCurrentProcessToken not in Win 7 so slightly longer */
+	    hProcess = GetCurrentProcess(); /* Need not be closed */
+	    if (hProcess) {
+		HANDLE hToken;
+		if (OpenProcessToken(hProcess, TOKEN_QUERY, &hToken)) {
+		    if (GetUserProfileDirectoryW(hToken, buf, &nChars)) {
+			Tcl_WinTCharToUtf((TCHAR *)buf,
+				(nChars-1)*sizeof(WCHAR), bufferPtr);
+			result = Tcl_DStringValue(bufferPtr);
+			rc = 1;
+		    }
+		    CloseHandle(hToken);
+		}
 	    }
 	}
 	Tcl_DStringFree(&ds);
@@ -1503,7 +1522,7 @@ TclpGetUserHome(
 	    if (rc != 0) {
 		break;
 	    }
-	    domain = INT2PTR(-1); /* repeat once */
+	    domain = (const char *)INT2PTR(-1); /* repeat once */
 	}
 	if (rc == 0) {
 	    DWORD i, size = MAX_PATH;
@@ -1541,30 +1560,6 @@ TclpGetUserHome(
     }
     if (wDomain != NULL) {
 	NetApiBufferFree((void *) wDomain);
-    }
-    if (result == NULL) {
-	/*
-	 * Look in the "Password Lists" section of system.ini for the local
-	 * user. There are also entries in that section that begin with a "*"
-	 * character that are used by Windows for other purposes; ignore user
-	 * names beginning with a "*".
-	 */
-
-	char buf[MAX_PATH];
-
-	if (name[0] != '*') {
-	    if (GetPrivateProfileStringA("Password Lists", name, "", buf,
-		    MAX_PATH, "system.ini") > 0) {
-		/*
-		 * User exists, but there is no such thing as a home directory
-		 * in system.ini. Return "{Windows drive}:/".
-		 */
-
-		GetWindowsDirectoryA(buf, MAX_PATH);
-		Tcl_DStringAppend(bufferPtr, buf, 3);
-		result = Tcl_DStringValue(bufferPtr);
-	    }
-	}
     }
 
     return result;
@@ -1684,7 +1679,7 @@ NativeAccess(
 	}
 
 	/*
-	 * We cannnot verify the access fast, check it below using security
+	 * We cannot verify the access fast, check it below using security
 	 * info.
 	 */
     }
@@ -1804,7 +1799,7 @@ NativeAccess(
 	RevertToSelf();
 
 	/*
-	 * Setup desiredAccess according to the access priveleges we are
+	 * Setup desiredAccess according to the access privileges we are
 	 * checking.
 	 */
 
@@ -1922,7 +1917,7 @@ TclpObjChdir(
     int result;
     const WCHAR *nativePath;
 
-    nativePath = Tcl_FSGetNativePath(pathPtr);
+    nativePath = (const WCHAR *)Tcl_FSGetNativePath(pathPtr);
 
     if (!nativePath) {
 	return -1;
@@ -2014,7 +2009,7 @@ TclpObjStat(
 
     TclWinFlushDirtyChannels();
 
-    return NativeStat(Tcl_FSGetNativePath(pathPtr), statPtr, 0);
+    return NativeStat((const WCHAR *)Tcl_FSGetNativePath(pathPtr), statPtr, 0);
 }
 
 /*
@@ -2060,7 +2055,7 @@ NativeStat(
      * 'getFileAttributesExProc', and if that isn't available, then on even
      * simpler routines.
      *
-     * Special consideration must be given to Windows hardcoded names like
+     * Special consideration must be given to Windows hard-coded names like
      * CON, NULL, COM1, LPT1 etc. For these, we still need to do the
      * CreateFile as some may not exist (e.g. there is no CON in wish by
      * default). However the subsequent GetFileInformationByHandle will
@@ -2099,8 +2094,8 @@ NativeStat(
             statPtr->st_ctime = ToCTime(data.ftCreationTime);
         }
 	attr = data.dwFileAttributes;
-	statPtr->st_size = ((Tcl_WideInt) data.nFileSizeLow) |
-		(((Tcl_WideInt) data.nFileSizeHigh) << 32);
+	statPtr->st_size = ((Tcl_WideInt)data.nFileSizeLow) |
+		(((Tcl_WideInt)data.nFileSizeHigh) << 32);
 
 	/*
 	 * On Unix, for directories, nlink apparently depends on the number of
@@ -2147,8 +2142,8 @@ NativeStat(
 
 	attr = data.dwFileAttributes;
 
-	statPtr->st_size = ((Tcl_WideInt) data.nFileSizeLow) |
-		(((Tcl_WideInt) data.nFileSizeHigh) << 32);
+	statPtr->st_size = ((Tcl_WideInt)data.nFileSizeLow) |
+		(((Tcl_WideInt)data.nFileSizeHigh) << 32);
 	statPtr->st_atime = ToCTime(data.ftLastAccessTime);
 	statPtr->st_mtime = ToCTime(data.ftLastWriteTime);
 	statPtr->st_ctime = ToCTime(data.ftCreationTime);
@@ -2207,7 +2202,7 @@ NativeDev(
 	p = strchr(p + 1, '\\');
 	if (p == NULL) {
 	    /*
-	     * Add terminating backslash to fullpath or GetVolumeInformation()
+	     * Add terminating backslash to fullpath or GetVolumeInformationW()
 	     * won't work.
 	     */
 
@@ -2308,7 +2303,7 @@ ToCTime(
     convertedTime.HighPart = (LONG) fileTime.dwHighDateTime;
 
     return (time_t) ((convertedTime.QuadPart -
-	    (Tcl_WideInt) POSIX_EPOCH_AS_FILETIME) / (Tcl_WideInt) 10000000);
+	    (Tcl_WideInt)POSIX_EPOCH_AS_FILETIME) / (Tcl_WideInt)10000000);
 }
 
 /*
@@ -2349,7 +2344,7 @@ FromCTime(
  *	is either the given clientData, if the working directory hasn't
  *	changed, or a new clientData (owned by our caller), giving the new
  *	native path, or NULL if the current directory could not be determined.
- *	If NULL is returned, the caller can examine the standard posix error
+ *	If NULL is returned, the caller can examine the standard Posix error
  *	codes to determine the cause of the problem.
  *
  * Side effects:
@@ -2383,7 +2378,7 @@ TclpObjAccess(
     Tcl_Obj *pathPtr,
     int mode)
 {
-    return NativeAccess(Tcl_FSGetNativePath(pathPtr), mode);
+    return NativeAccess((const WCHAR *)Tcl_FSGetNativePath(pathPtr), mode);
 }
 
 int
@@ -2399,7 +2394,7 @@ TclpObjLstat(
 
     TclWinFlushDirtyChannels();
 
-    return NativeStat(Tcl_FSGetNativePath(pathPtr), statPtr, 1);
+    return NativeStat((const WCHAR *)Tcl_FSGetNativePath(pathPtr), statPtr, 1);
 }
 
 #ifdef S_IFLNK
@@ -2412,14 +2407,14 @@ TclpObjLink(
     if (toPtr != NULL) {
 	int res;
 	const WCHAR *LinkTarget;
-	const WCHAR *LinkSource = Tcl_FSGetNativePath(pathPtr);
+	const WCHAR *LinkSource = (const WCHAR *)Tcl_FSGetNativePath(pathPtr);
 	Tcl_Obj *normalizedToPtr = Tcl_FSGetNormalizedPath(NULL, toPtr);
 
 	if (normalizedToPtr == NULL) {
 	    return NULL;
 	}
 
-	LinkTarget = Tcl_FSGetNativePath(normalizedToPtr);
+	LinkTarget = (const WCHAR *)Tcl_FSGetNativePath(normalizedToPtr);
 
 	if (LinkSource == NULL || LinkTarget == NULL) {
 	    return NULL;
@@ -2431,7 +2426,7 @@ TclpObjLink(
 	    return NULL;
 	}
     } else {
-	const WCHAR *LinkSource = Tcl_FSGetNativePath(pathPtr);
+	const WCHAR *LinkSource = (const WCHAR *)Tcl_FSGetNativePath(pathPtr);
 
 	if (LinkSource == NULL) {
 	    return NULL;
@@ -2480,13 +2475,13 @@ TclpFilesystemPathType(
 
     firstSeparator = strchr(path, '/');
     if (firstSeparator == NULL) {
-	found = GetVolumeInformationW(Tcl_FSGetNativePath(pathPtr),
+	found = GetVolumeInformationW((const WCHAR *)Tcl_FSGetNativePath(pathPtr),
 		NULL, 0, NULL, NULL, NULL, volType, VOL_BUF_SIZE);
     } else {
 	Tcl_Obj *driveName = Tcl_NewStringObj(path, firstSeparator - path+1);
 
 	Tcl_IncrRefCount(driveName);
-	found = GetVolumeInformationW(Tcl_FSGetNativePath(driveName),
+	found = GetVolumeInformationW((const WCHAR *)Tcl_FSGetNativePath(driveName),
 		NULL, 0, NULL, NULL, NULL, volType, VOL_BUF_SIZE);
 	Tcl_DecrRefCount(driveName);
     }
@@ -2539,7 +2534,7 @@ TclpFilesystemPathType(
 
 int
 TclpObjNormalizePath(
-    Tcl_Interp *interp,
+    Tcl_Interp *interp, /* not used */
     Tcl_Obj *pathPtr,	        /* An unshared object containing the path to
 				 * normalize */
     int nextCheckpoint)	        /* offset to start at in pathPtr */
@@ -2550,6 +2545,7 @@ TclpObjNormalizePath(
     Tcl_Obj *temp = NULL;
     int isDrive = 1;
     Tcl_DString ds;		/* Some workspace. */
+    (void)interp;
 
     Tcl_DStringInit(&dsNorm);
     path = Tcl_GetString(pathPtr);
@@ -2587,7 +2583,7 @@ TclpObjNormalizePath(
 			int i;
 
 			for (i=0 ; i<len ; i++) {
-			    WCHAR wc = ((WCHAR *) nativePath)[i];
+			    WCHAR wc = ((WCHAR *)nativePath)[i];
 
 			    if (wc >= 'a') {
 				wc -= ('a' - 'A');
@@ -3035,12 +3031,14 @@ TclNativeCreateNativeRep(
     WCHAR *nativePathPtr = NULL;
     const char *str;
     Tcl_Obj *validPathPtr;
-    size_t len;
+    int len;
     WCHAR *wp;
+    Tcl_DString ds;
+    Tcl_Encoding utf8;
 
-    if (TclFSCwdIsNative()) {
+    if (TclFSCwdIsNative() || Tcl_FSGetPathType(pathPtr) == TCL_PATH_ABSOLUTE) {
 	/*
-	 * The cwd is native, which means we can use the translated path
+	 * The cwd is native (or path is absolute), use the translated path
 	 * without worrying about normalization (this will also usually be
 	 * shorter so the utf-to-external conversion will be somewhat faster).
 	 */
@@ -3072,10 +3070,13 @@ TclNativeCreateNativeRep(
 	Tcl_IncrRefCount(validPathPtr);
     }
 
-    str = Tcl_GetString(validPathPtr);
-    len = validPathPtr->length;
+    utf8 = Tcl_GetEncoding(NULL, "utf-8");
+    str = Tcl_GetStringFromObj(validPathPtr, &len);
+    str = Tcl_UtfToExternalDString(utf8, str, len, &ds);
+    len = Tcl_DStringLength(&ds);
+    Tcl_FreeEncoding(utf8);
 
-    if (strlen(str) != len) {
+    if (strlen(str) != (size_t)len) {
 	/*
 	 * String contains NUL-bytes. This is invalid.
 	 */
@@ -3104,7 +3105,7 @@ TclNativeCreateNativeRep(
      * Overallocate 6 chars, making some room for extended paths
      */
 
-    wp = nativePathPtr = ckalloc((len + 6) * sizeof(WCHAR));
+    wp = nativePathPtr = (WCHAR *)ckalloc((len + 6) * sizeof(WCHAR));
     if (nativePathPtr==0) {
       goto done;
     }
@@ -3160,7 +3161,7 @@ TclNativeCreateNativeRep(
      */
 
     while (*wp != '\0') {
-	if ((*wp < ' ') || wcschr(L"\"*:<>?|", *wp)) {
+	if ((*wp < ' ') || wcschr(L"\"*<>?|", *wp)) {
 	    *wp |= 0xF000;
 	} else if (*wp == '/') {
 	    *wp = '\\';
@@ -3169,6 +3170,7 @@ TclNativeCreateNativeRep(
     }
 
   done:
+    Tcl_DStringFree(&ds);
     TclDecrRefCount(validPathPtr);
     return nativePathPtr;
 }
@@ -3203,7 +3205,7 @@ TclNativeDupInternalRep(
 
     len = sizeof(WCHAR) * (wcslen((const WCHAR *) clientData) + 1);
 
-    copy = ckalloc(len);
+    copy = (char *)ckalloc(len);
     memcpy(copy, clientData, len);
     return copy;
 }
@@ -3240,7 +3242,7 @@ TclpUtime(
     FromCTime(tval->actime, &lastAccessTime);
     FromCTime(tval->modtime, &lastModTime);
 
-    native = Tcl_FSGetNativePath(pathPtr);
+    native = (const WCHAR *)Tcl_FSGetNativePath(pathPtr);
 
     attr = GetFileAttributesW(native);
 
@@ -3291,7 +3293,7 @@ TclWinFileOwned(
     DWORD bufsz;
     int owned = 0;
 
-    native = Tcl_FSGetNativePath(pathPtr);
+    native = (const WCHAR *)Tcl_FSGetNativePath(pathPtr);
 
     if (GetNamedSecurityInfoW((LPWSTR) native, SE_FILE_OBJECT,
 	    OWNER_SECURITY_INFORMATION, &ownerSid, NULL, NULL, NULL,
@@ -3319,7 +3321,7 @@ TclWinFileOwned(
         bufsz = 0;
         GetTokenInformation(token, TokenUser, NULL, 0, &bufsz);
         if (bufsz) {
-            buf = ckalloc(bufsz);
+            buf = (LPBYTE)ckalloc(bufsz);
             if (GetTokenInformation(token, TokenUser, buf, bufsz, &bufsz)) {
                 owned = EqualSid(ownerSid, ((PTOKEN_USER) buf)->User.Sid);
             }

@@ -93,7 +93,7 @@ NewListInternalRep(
     List *listRepPtr;
 
     if (objc <= 0) {
-	Tcl_Panic("NewListInternalRep: expects postive element count");
+	Tcl_Panic("NewListInternalRep: expects positive element count");
     }
 
     /*
@@ -168,7 +168,7 @@ AttemptNewList(
 		    "list creation failed: unable to alloc %u bytes",
 		    LIST_SIZE(objc)));
 	}
-	Tcl_SetErrorCode(interp, "TCL", "MEMORY", NULL);
+	Tcl_SetErrorCode(interp, "TCL", "MEMORY", (char *)NULL);
     }
     return listRepPtr;
 }
@@ -539,7 +539,7 @@ Tcl_ListObjAppendList(
  *
  *	If 'listPtr' is not already of type 'tclListType', it is converted.
  *	The 'refCount' of 'objPtr' is incremented as it is added to 'listPtr'.
- *	Appending the new element may cause the the array of element pointers
+ *	Appending the new element may cause the array of element pointers
  *	in 'listObj' to grow.  Any preexisting string representation of
  *	'listPtr' is invalidated.
  *
@@ -582,7 +582,7 @@ Tcl_ListObjAppendElement(
 	    Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 		    "max length of a Tcl list (%d elements) exceeded",
 		    LIST_MAX));
-	    Tcl_SetErrorCode(interp, "TCL", "MEMORY", NULL);
+	    Tcl_SetErrorCode(interp, "TCL", "MEMORY", (char *)NULL);
 	}
 	return TCL_ERROR;
     }
@@ -594,18 +594,18 @@ Tcl_ListObjAppendElement(
 
 	attempt = 2 * numRequired;
 	if (attempt <= LIST_MAX) {
-	    newPtr = attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
+	    newPtr = (List *)attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
 	}
 	if (newPtr == NULL) {
 	    attempt = numRequired + 1 + TCL_MIN_ELEMENT_GROWTH;
 	    if (attempt > LIST_MAX) {
 		attempt = LIST_MAX;
 	    }
-	    newPtr = attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
+	    newPtr = (List *)attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
 	}
 	if (newPtr == NULL) {
 	    attempt = numRequired;
-	    newPtr = attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
+	    newPtr = (List *)attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
 	}
 	if (newPtr) {
 	    listRepPtr = newPtr;
@@ -707,7 +707,7 @@ Tcl_ListObjAppendElement(
  *
  * 	TCL_ERROR
  *
- * 	    'listPtr' is not a valid list. An an error message is left in the
+ * 	    'listPtr' is not a valid list. An error message is left in the
  * 	    interpreter's result if 'interp' is not NULL.
  *
  *  Effect
@@ -873,7 +873,7 @@ Tcl_ListObjReplace(
      * Note that when count == 0 and objc == 0, this routine is logically a
      * no-op, removing and adding no elements to the list. However, by flowing
      * through this routine anyway, we get the important side effect that the
-     * resulting listPtr is a list in canoncial form. This is important.
+     * resulting listPtr is a list in canonical form. This is important.
      * Resist any temptation to optimize this case.
      */
 
@@ -889,7 +889,7 @@ Tcl_ListObjReplace(
     }
     if (count < 0) {
 	count = 0;
-    } else if (first > INT_MAX - count /* Handle integer overflow */
+    } else if (count > LIST_MAX /* Handle integer overflow */
 	    || numElems < first+count) {
 
 	count = numElems - first;
@@ -916,18 +916,18 @@ Tcl_ListObjReplace(
 	List *newPtr = NULL;
 	int attempt = 2 * numRequired;
 	if (attempt <= LIST_MAX) {
-	    newPtr = attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
+	    newPtr = (List *)attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
 	}
 	if (newPtr == NULL) {
 	    attempt = numRequired + 1 + TCL_MIN_ELEMENT_GROWTH;
 	    if (attempt > LIST_MAX) {
 		attempt = LIST_MAX;
 	    }
-	    newPtr = attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
+	    newPtr = (List *)attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
 	}
 	if (newPtr == NULL) {
 	    attempt = numRequired;
-	    newPtr = attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
+	    newPtr = (List *)attemptckrealloc(listRepPtr, LIST_SIZE(attempt));
 	}
 	if (newPtr) {
 	    listRepPtr = newPtr;
@@ -993,11 +993,7 @@ Tcl_ListObjReplace(
 		if (listRepPtr == NULL) {
 		    for (i = 0;  i < objc;  i++) {
 			/* See bug 3598580 */
-#if TCL_MAJOR_VERSION > 8
-			Tcl_DecrRefCount(objv[i]);
-#else
 			objv[i]->refCount--;
-#endif
 		    }
 		    return TCL_ERROR;
 		}
@@ -1312,7 +1308,7 @@ TclLsetList(
     TclListObjGetElements(NULL, indexArgPtr, &indexCount, &indices);
 
     /*
-     * Let TclLsetFlat handle the actual lset'ting.
+     * Let TclLsetFlat perform the actual lset operation.
      */
 
     retValuePtr = TclLsetFlat(interp, listPtr, indexCount, indices, valuePtr);
@@ -1451,7 +1447,7 @@ TclLsetFlat(
 		Tcl_SetObjResult(interp,
 			Tcl_NewStringObj("list index out of range", -1));
 		Tcl_SetErrorCode(interp, "TCL", "OPERATION", "LSET",
-			"BADINDEX", NULL);
+			"BADINDEX", (char *)NULL);
 	    }
 	    result = TCL_ERROR;
 	    break;
@@ -1536,7 +1532,7 @@ TclLsetFlat(
 	 * Clear away our internalrep surgery mess.
 	 */
 
-	chainPtr = objPtr->internalRep.twoPtrValue.ptr2;
+	chainPtr = (Tcl_Obj *)objPtr->internalRep.twoPtrValue.ptr2;
 	objPtr->internalRep.twoPtrValue.ptr2 = NULL;
     }
 
@@ -1641,7 +1637,7 @@ TclListObjSetElement(
 		Tcl_SetObjResult(interp,
 			Tcl_NewStringObj("list index out of range", -1));
 		Tcl_SetErrorCode(interp, "TCL", "OPERATION", "LSET",
-			"BADINDEX", NULL);
+			"BADINDEX", (char *)NULL);
 	    }
 	    return TCL_ERROR;
 	}
@@ -1663,7 +1659,7 @@ TclListObjSetElement(
 	    Tcl_SetObjResult(interp,
 		    Tcl_NewStringObj("list index out of range", -1));
 	    Tcl_SetErrorCode(interp, "TCL", "OPERATION", "LSET", "BADINDEX",
-		    NULL);
+		    (char *)NULL);
 	}
 	return TCL_ERROR;
     }
@@ -1896,7 +1892,7 @@ SetListFromAny(
 		TclNewStringObj(*elemPtrs, elemStart, elemSize);
 	    } else {
 		TclNewObj(*elemPtrs);
-		(*elemPtrs)->bytes = ckalloc((unsigned) elemSize + 1);
+		(*elemPtrs)->bytes = (char *)ckalloc((unsigned) elemSize + 1);
 		(*elemPtrs)->length = TclCopyAndCollapse(elemSize, elemStart,
 			(*elemPtrs)->bytes);
 	    }
@@ -1925,7 +1921,7 @@ SetListFromAny(
  *
  *	Update the string representation for a list object.
  *
- *	Any previously-exising string representation is not invalidated, so
+ *	Any previously-existing string representation is not invalidated, so
  *	storage is lost if this has not been taken care of.
  *
  * Effect
@@ -1945,7 +1941,8 @@ UpdateStringOfList(
     char localFlags[LOCAL_SIZE], *flagPtr = NULL;
     List *listRepPtr = ListRepPtr(listPtr);
     int numElems = listRepPtr->elemCount;
-    int i, length, bytesNeeded = 0;
+    int i, length;
+    unsigned int bytesNeeded = 0;
     const char *elem;
     char *dst;
     Tcl_Obj **elemPtrs;
@@ -1979,18 +1976,18 @@ UpdateStringOfList(
 	 * We know numElems <= LIST_MAX, so this is safe.
 	 */
 
-	flagPtr = ckalloc(numElems);
+	flagPtr = (char *)ckalloc(numElems);
     }
     elemPtrs = &listRepPtr->elements;
     for (i = 0; i < numElems; i++) {
 	flagPtr[i] = (i ? TCL_DONT_QUOTE_HASH : 0);
 	elem = TclGetStringFromObj(elemPtrs[i], &length);
 	bytesNeeded += TclScanElement(elem, length, flagPtr+i);
-	if (bytesNeeded < 0) {
+	if (bytesNeeded > INT_MAX) {
 	    Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
 	}
     }
-    if (bytesNeeded > INT_MAX - numElems + 1) {
+    if (bytesNeeded + numElems > INT_MAX + 1U) {
 	Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
     }
     bytesNeeded += numElems;
@@ -2014,7 +2011,7 @@ UpdateStringOfList(
      *
      */
 
-    listPtr->bytes = ckalloc(bytesNeeded);
+    listPtr->bytes = (char *)ckalloc(bytesNeeded);
     dst = listPtr->bytes;
     for (i = 0; i < numElems; i++) {
 	flagPtr[i] |= (i ? TCL_DONT_QUOTE_HASH : 0);

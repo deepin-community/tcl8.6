@@ -1,3 +1,45 @@
+tcl8.6 (8.6.16+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Thu, 09 Jan 2025 13:15:04 +0300
+
+tcl8.6 (8.6.15+dfsg-2) unstable; urgency=medium
+
+  * Change the TCL_PACKAGE_PATH in debian/rules to address its new format
+    introduced in 8.6.15 (closes: #1082652).
+
+ -- Sergei Golovan <sgolovan@debian.org>  Tue, 24 Sep 2024 10:29:06 +0300
+
+tcl8.6 (8.6.15+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump standards version to 4.7.0.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Mon, 23 Sep 2024 12:29:35 +0300
+
+tcl8.6 (8.6.14+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Add a few symbols to debian/libtcl8.6.symbols.
+  * Bump standards version to 4.6.2.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Sat, 02 Mar 2024 15:32:57 +0300
+
+tcl8.6 (8.6.13+dfsg-2) unstable; urgency=medium
+
+  * Drop the useless menu item.
+  * Bump the debhelper compatibility level to 13.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Wed, 01 Feb 2023 12:25:12 +0300
+
+tcl8.6 (8.6.13+dfsg-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Bump standards version to 4.6.1.
+
+ -- Sergei Golovan <sgolovan@debian.org>  Fri, 25 Nov 2022 14:08:37 +0300
+
 tcl8.6 (8.6.12+dfsg-1) unstable; urgency=medium
 
   * New upstream release.

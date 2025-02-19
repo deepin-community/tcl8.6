@@ -26,7 +26,7 @@ m4_ifdef([SC_USE_CONFIG_HEADERS], [
 TCL_VERSION=8.6
 TCL_MAJOR_VERSION=8
 TCL_MINOR_VERSION=6
-TCL_PATCH_LEVEL=".12"
+TCL_PATCH_LEVEL=".16"
 VERSION=${TCL_VERSION}
 
 EXTRA_INSTALL_BINARIES=${EXTRA_INSTALL_BINARIES:-"@:"}
@@ -90,7 +90,7 @@ AC_C_INLINE
 #--------------------------------------------------------------------
 # Supply substitutes for missing POSIX header files.  Special notes:
 #	- stdlib.h doesn't define strtol, strtoul, or
-#	  strtod insome versions of SunOS
+#	  strtod in some versions of SunOS
 #	- some versions of string.h don't declare procedures such
 #	  as strstr
 # Do this early, otherwise an autoconf bug throws errors on configure
@@ -183,7 +183,6 @@ SC_CONFIG_CFLAGS
 
 SC_ENABLE_SYMBOLS(bccdebug)
 
-AC_DEFINE(TCL_TOMMATH, 1, [Build libtommath?])
 AC_DEFINE(MP_PREC, 4, [Default libtommath precision.])
 
 #--------------------------------------------------------------------
@@ -199,7 +198,7 @@ SC_TCL_64BIT_FLAGS
 #	Tcl_UniChar strings to memcmp on big-endian systems.
 #--------------------------------------------------------------------
 
-AC_C_BIGENDIAN
+AC_C_BIGENDIAN(,,,[#])
 
 #--------------------------------------------------------------------
 #	Supply substitutes for missing POSIX library procedures, or
@@ -209,12 +208,15 @@ AC_C_BIGENDIAN
 # Check if Posix compliant getcwd exists, if not we'll use getwd.
 AC_CHECK_FUNCS(getcwd, , [AC_DEFINE(USEGETWD, 1, [Is getcwd Posix-compliant?])])
 # Nb: if getcwd uses popen and pwd(1) (like SunOS 4) we should really
-# define USEGETWD even if the posix getcwd exists. Add a test ?
+# define USEGETWD even if the Posix getcwd exists. Add a test ?
 
 AC_REPLACE_FUNCS(mkstemp opendir strtol waitpid)
 AC_CHECK_FUNC(strerror, , [AC_DEFINE(NO_STRERROR, 1, [Do we have strerror()])])
 AC_CHECK_FUNC(getwd, , [AC_DEFINE(NO_GETWD, 1, [Do we have getwd()])])
 AC_CHECK_FUNC(wait3, , [AC_DEFINE(NO_WAIT3, 1, [Do we have wait3()])])
+AC_CHECK_FUNC(fork, , [AC_DEFINE(NO_FORK, 1, [Do we have fork()])])
+AC_CHECK_FUNC(mknod, , [AC_DEFINE(NO_MKNOD, 1, [Do we have mknod()])])
+AC_CHECK_FUNC(tcdrain, , [AC_DEFINE(NO_TCDRAIN, 1, [Do we have tcdrain()])])
 AC_CHECK_FUNC(uname, , [AC_DEFINE(NO_UNAME, 1, [Do we have uname()])])
 
 if test "`uname -s`" = "Darwin" && test "${TCL_THREADS}" = 1 && \
@@ -248,8 +250,8 @@ if test "${TCL_THREADS}" = 1; then
 
     elif test "`uname -s`" = "HP-UX" && \
 	      test "`uname -r|sed -e 's|B\.||' -e 's|\..*$||'`" -gt 10; then
-        # Starting with HPUX 11.00 (we believe), gethostbyX
-        # are actually MT-safe as they always return pointers
+	# Starting with HPUX 11.00 (we believe), gethostbyX
+	# are actually MT-safe as they always return pointers
 	# from TSD instead of static storage.
 	AC_DEFINE(HAVE_MTSAFE_GETHOSTBYNAME, 1,
 		[Do we have MT-safe gethostbyname() ?])
@@ -338,7 +340,7 @@ AC_CHECK_FUNC(memmove, , [
     AC_DEFINE(NO_STRING_H, 1, [Do we have <string.h>?]) ])
 
 #--------------------------------------------------------------------
-#	On some systems strstr is broken: it returns a pointer even even if
+#	On some systems strstr is broken: it returns a pointer even if
 #	the original string is empty.
 #--------------------------------------------------------------------
 
@@ -372,7 +374,7 @@ AC_CACHE_CHECK([for socklen_t], tcl_cv_type_socklen_t, [
 	#include <sys/types.h>
 	#include <sys/socket.h>
     ]], [[
-    	socklen_t foo;
+	socklen_t foo;
     ]])],[tcl_cv_type_socklen_t=yes],[tcl_cv_type_socklen_t=no])])
 if test $tcl_cv_type_socklen_t = no; then
     AC_DEFINE(socklen_t, int, [Define as int if socklen_t is not available])
@@ -560,7 +562,6 @@ if test "`uname -s`" = "Darwin" ; then
 	AC_CHECK_HEADERS(libkern/OSAtomic.h)
 	AC_CHECK_FUNCS(OSSpinLockLock)
     fi
-    AC_DEFINE(USE_VFORK, 1, [Should we use vfork() instead of fork()?])
     AC_DEFINE(TCL_DEFAULT_ENCODING, "utf-8",
 	[Are we to override what our default encoding is?])
     AC_DEFINE(TCL_LOAD_FROM_MEMORY, 1,
@@ -748,11 +749,11 @@ AC_CACHE_CHECK([whether the cpuid instruction is usable], tcl_cv_cpuid, [
     AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[
 	int index,regsPtr[4];
     __asm__ __volatile__("mov %%ebx, %%edi     \n\t"
-                 "cpuid            \n\t"
-                 "mov %%ebx, %%esi   \n\t"
-                 "mov %%edi, %%ebx  \n\t"
-                 : "=a"(regsPtr[0]), "=S"(regsPtr[1]), "=c"(regsPtr[2]), "=d"(regsPtr[3])
-                 : "a"(index) : "edi");
+		 "cpuid            \n\t"
+		 "mov %%ebx, %%esi   \n\t"
+		 "mov %%edi, %%ebx  \n\t"
+		 : "=a"(regsPtr[0]), "=S"(regsPtr[1]), "=c"(regsPtr[2]), "=d"(regsPtr[3])
+		 : "a"(index) : "edi");
     ]])],[tcl_cv_cpuid=yes],[tcl_cv_cpuid=no])])
 if test $tcl_cv_cpuid = yes; then
     AC_DEFINE(HAVE_CPUID, 1, [Is the cpuid instruction usable?])
@@ -799,22 +800,22 @@ if test "$FRAMEWORK_BUILD" = "1" ; then
     # Construct a fake local framework structure to make linking with
     # '-framework Tcl' and running of tcltest work
     AC_CONFIG_COMMANDS([Tcl.framework], [n=Tcl &&
-        f=$n.framework && v=Versions/$VERSION &&
-        rm -rf $f && mkdir -p $f/$v/Resources &&
-        ln -s $v/$n $v/Resources $f && ln -s ../../../$n $f/$v &&
-        ln -s ../../../../$n-Info.plist $f/$v/Resources/Info.plist &&
-        unset n f v
+	f=$n.framework && v=Versions/$VERSION &&
+	rm -rf $f && mkdir -p $f/$v/Resources &&
+	ln -s $v/$n $v/Resources $f && ln -s ../../../$n $f/$v &&
+	ln -s ../../../../$n-Info.plist $f/$v/Resources/Info.plist &&
+	unset n f v
     ], VERSION=${TCL_VERSION})
     LD_LIBRARY_PATH_VAR="DYLD_FRAMEWORK_PATH"
     # default install directory for bundled packages
     if test "${libdir}" = '${exec_prefix}/lib' -o "`basename ${libdir}`" = 'Frameworks'; then
-        PACKAGE_DIR="/Library/Tcl"
+	PACKAGE_DIR="/Library/Tcl"
     else
-        PACKAGE_DIR="$libdir"
+	PACKAGE_DIR="$libdir"
     fi
     if test "${libdir}" = '${exec_prefix}/lib'; then
-        # override libdir default
-        libdir="/Library/Frameworks"
+	# override libdir default
+	libdir="/Library/Frameworks"
     fi
     TCL_LIB_FILE="Tcl"
     TCL_LIB_FLAG="-framework Tcl"
@@ -841,9 +842,9 @@ else
     # default install directory for bundled packages
     PACKAGE_DIR="$libdir"
     if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
-        TCL_LIB_FLAG="-ltcl${TCL_VERSION}"
+	TCL_LIB_FLAG="-ltcl${TCL_VERSION}"
     else
-        TCL_LIB_FLAG="-ltcl`echo ${TCL_VERSION} | tr -d .`"
+	TCL_LIB_FLAG="-ltcl`echo ${TCL_VERSION} | tr -d .`"
     fi
     TCL_BUILD_LIB_SPEC="-L`pwd | sed -e 's/ /\\\\ /g'` ${TCL_LIB_FLAG}"
     TCL_LIB_SPEC="-L${libdir} ${TCL_LIB_FLAG}"
@@ -862,13 +863,15 @@ VERSION=${TCL_VERSION}
 
 if test "$FRAMEWORK_BUILD" = "1" ; then
     test -z "$TCL_PACKAGE_PATH" && \
-	TCL_PACKAGE_PATH="~/Library/Tcl /Library/Tcl ~/Library/Frameworks /Library/Frameworks"
+	TCL_PACKAGE_PATH="~/Library/Tcl:/Library/Tcl:~/Library/Frameworks:/Library/Frameworks"
+	# Allow tclsh to find Tk when multiple versions are installed. See Tk [1562e10c58].
+	TCL_PACKAGE_PATH="$TCL_PACKAGE_PATH:/Library/Frameworks/Tk.framework/Versions"
     test -z "$TCL_MODULE_PATH"  && \
 	TCL_MODULE_PATH="~/Library/Tcl /Library/Tcl"
 elif test "$prefix/lib" != "$libdir"; then
-    test -z "$TCL_PACKAGE_PATH" && TCL_PACKAGE_PATH="{${libdir}} {${prefix}/lib} ${TCL_PACKAGE_PATH}"
+    test -z "$TCL_PACKAGE_PATH" && TCL_PACKAGE_PATH="${libdir}:${prefix}/lib"
 else
-    test -z "$TCL_PACKAGE_PATH" && TCL_PACKAGE_PATH="{${prefix}/lib} ${TCL_PACKAGE_PATH}"
+    test -z "$TCL_PACKAGE_PATH" && TCL_PACKAGE_PATH="${prefix}/lib"
 fi
 
 #--------------------------------------------------------------------
