@@ -668,7 +668,7 @@ SubstituteFile(
 		    op += strlen(p->key);
 		    while (*op) *cp++ = *op++;
 		    *cp = 0;
-		    memcpy(szBuffer, szCopy, sizeof(szCopy));
+		    memmove(szBuffer, szCopy, sizeof(szCopy));
 		}
 	    }
 	    printf("%s", szBuffer);

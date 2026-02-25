@@ -1,3 +1,9 @@
+tcl8.6 (8.6.16+dfsg-1deepin1) unstable; urgency=medium
+
+  * Fix CVE-2021-35331: Use memmove instead of memcpy in win/nmakehlp.c
+
+ -- hudeng <hudeng@deepin.org>  Wed, 25 Feb 2026 10:50:21 +0800
+
 tcl8.6 (8.6.16+dfsg-1) unstable; urgency=medium
 
   * New upstream release.
